@@ -7,6 +7,22 @@ from proxybroker import Broker, ProxyPool
 from pymongo import MongoClient
 from datetime import datetime
 from var_dump import var_dump
+import requests
+
+
+def fetch2(url, server):
+    proxyDict = {"https": server}
+    headers = {
+        'user-agent': 'Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US; rv:1.9.1.5) Gecko/20091102 Firefox/3.5.5 (.NET CLR 3.5.30729)'}
+    try:
+        r = requests.get(url,headers=headers, proxies=proxyDict)
+        status = r.status_code
+        if status is 200:
+            return status
+        else:
+            return False
+    except Exception:
+        return False
 
 
 async def show(proxies):
@@ -30,6 +46,7 @@ async def save(proxies, collection):
 
         now = datetime.utcnow()
 
+
         key = {'HostPort': HostPort}
         data = {
             "$setOnInsert": {
@@ -44,7 +61,10 @@ async def save(proxies, collection):
             }
         }
         #print(data)
-        collection.update_one(key, data, upsert=True)
+        if fetch2('https://httpbin.org/get?show_env', HostPort) == 200:
+            collection.update_one(key, data, upsert=True)
+        else:
+            print('Proxy: %s not support https' % HostPort)
 
 
 def main():
