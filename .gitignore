@@ -1,7 +1,7 @@
 # phpstorm project files
 .idea
-
 .env
+
 # zend studio for eclipse project files
 .buildpath
 .project
