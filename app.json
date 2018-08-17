@@ -1,0 +1,8 @@
+{
+  "name": "ProxyToMongo",
+  "description": "ProxyToMongo is an open source tool that asynchronously finds public proxies.",
+  "image": "heroku/python",
+  "repository": "https://github.com/spions/ProxyToMongo",
+  "keywords": ["python", "mongolab" ],
+  "addons": [ "heroku-mongolab" ],
+}
