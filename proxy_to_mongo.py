@@ -3,19 +3,27 @@
 # https://github.com/constverum/ProxyBroker
 
 import asyncio
+import requests
+import os
+import signal
 from proxybroker import Broker, ProxyPool
 from pymongo import MongoClient
 from datetime import datetime
 from var_dump import var_dump
-import requests
+from dotenv import load_dotenv, find_dotenv
 
+
+
+def handler(signum, frame):
+    print ("Exit (ctr+c)")
+    exit(1)
 
 def fetch2(url, server):
     proxyDict = {"https": server}
     headers = {
         'user-agent': 'Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US; rv:1.9.1.5) Gecko/20091102 Firefox/3.5.5 (.NET CLR 3.5.30729)'}
     try:
-        r = requests.get(url,headers=headers, proxies=proxyDict)
+        r = requests.get(url, headers=headers, proxies=proxyDict)
         status = r.status_code
         if status is 200:
             return status
@@ -34,18 +42,20 @@ async def show(proxies):
 
 async def save(proxies, collection):
     while True:
+
+        signal.signal(signal.SIGINT, handler)
+
         proxy = await proxies.get()
         if proxy is None:
             break
         # Found proxy: <Proxy FR 0.27s [HTTP: High] 163.172.28.22:80>
         print('Found proxy: %s' % proxy)
-        #var_dump(proxy)
+        # var_dump(proxy)
         # proto = 'https' if 'HTTPS' in proxy.types else 'http'
         # row = '%s://%s:%d\n' % (proto, proxy.host, proxy.port)
         HostPort = '%s:%d' % (proxy.host, proxy.port)
 
         now = datetime.utcnow()
-
 
         key = {'HostPort': HostPort}
         data = {
@@ -60,7 +70,7 @@ async def save(proxies, collection):
                 'last_update_date': now
             }
         }
-        #print(data)
+        # print(data)
         if fetch2('https://httpbin.org/get?show_env', HostPort) == 200:
             collection.update_one(key, data, upsert=True)
         else:
@@ -68,14 +78,24 @@ async def save(proxies, collection):
 
 
 def main():
-    client = MongoClient('mongodb://test1:passwd@192.168.1.7:27017/')
-    db = client['tvh5']
-    collection = db['proxy']
+    start_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    load_dotenv(find_dotenv())
+
+    MONGODB_ADDRESS = os.getenv("MONGODB_ADDRESS")
+    DB = os.getenv("DB")
+    COLLECTION = os.getenv("COLLECTION")
+    LIMIT_PROXY = os.getenv("LIMIT_PROXY")
+
+    print("%s: Start search proxy servers..." % start_time)
+    client = MongoClient(MONGODB_ADDRESS)
+    db = client[DB]
+    collection = db[COLLECTION]
 
     #  Отключаем прокси у которых только отказы
     query = {
         'bad': {'$gte': 5},
-        '$or': [{'good': 0},{'good':{'$exists':False}}]
+        '$or': [{'good': 0}, {'good': {'$exists': False}}]
     }
     update = {'$set': {'status': 0}}
 
@@ -83,7 +103,6 @@ def main():
     proxy_count = result.matched_count
     proxy_mod = result.modified_count
     print('Update status to "0" proxy: %s in %s' % (proxy_mod, proxy_count))
-
 
     index_name = 'HostPort'
     if index_name not in collection.index_information():
@@ -104,18 +123,16 @@ def main():
 
     )
 
-
-
     tasks = asyncio.gather(
-        #broker.find(types=['HTTP', 'HTTPS','SOCKS5'], limit=100),
-        broker.find(types=[('HTTP', ('Anonymous', 'High'))], limit=400),
+        broker.find(types=[('HTTP', ('Anonymous', 'High'))], limit=LIMIT_PROXY),
         save(proxies, collection)
     )
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(tasks)
-
+    end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("%s: End search proxy servers." % end_time)
+    print('Duration: {}'.format(end_time - start_time))
 
 if __name__ == '__main__':
     main()
-
