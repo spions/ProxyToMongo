@@ -64,10 +64,10 @@ async def save(proxies, collection):
                 'lvl': proxy.types,
                 'countries': proxy.geo.code,
                 'avg_resp_time': proxy.avg_resp_time,
-                'insertion_date': now,
+                'created_at': now,
             },
             "$set": {
-                'last_update_date': now
+                'updated_at': now
             }
         }
         # print(data)
