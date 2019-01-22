@@ -7,4 +7,5 @@ ADD ./proxy_to_mongo.py .
 ADD ./.env .
 
 RUN pip install -r requirements.txt
+ADD . /usr/src/app
 CMD [ "python", "./proxy_to_mongo.py" ]
